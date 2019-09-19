@@ -11,52 +11,53 @@ import torch.nn.functional as F
 from torch import nn, cuda
 from torch.autograd import Variable
 
-class PartialConv2d(nn.Conv2d):
-    def __init__(self, *args, **kwargs):
+class PartialConv2d(nn.Conv2d):#declare class partialConv2d
+    def __init__(self, *args, **kwargs): #declare init function
 
         # whether the mask is multi-channel or not
-        if 'multi_channel' in kwargs:
-            self.multi_channel = kwargs['multi_channel']
-            kwargs.pop('multi_channel')
+        if 'multi_channel' in kwargs: #set multichannel
+            self.multi_channel = kwargs['multi_channel'] #set multichannel
+            kwargs.pop('multi_channel') #remove multichannel
         else:
-            self.multi_channel = False  
+            self.multi_channel = False  #else set to default of false
 
-        if 'return_mask' in kwargs:
-            self.return_mask = kwargs['return_mask']
-            kwargs.pop('return_mask')
+        if 'return_mask' in kwargs: #return_mask
+            self.return_mask = kwargs['return_mask']#set returnmask
+            kwargs.pop('return_mask')#pop returnmask
         else:
-            self.return_mask = False
+            self.return_mask = False #set default for returnmask
 
-        super(PartialConv2d, self).__init__(*args, **kwargs)
+        super(PartialConv2d, self).__init__(*args, **kwargs)#call parent constructor
 
-        if self.multi_channel:
-            self.weight_maskUpdater = torch.ones(self.out_channels, self.in_channels, self.kernel_size[0], self.kernel_size[1])
+        if self.multi_channel: #if self.multi_channel
+            self.weight_maskUpdater = torch.ones(self.out_channels, self.in_channels, self.kernel_size[0], self.kernel_size[1])#more channels for mask
         else:
-            self.weight_maskUpdater = torch.ones(1, 1, self.kernel_size[0], self.kernel_size[1])
+            self.weight_maskUpdater = torch.ones(1, 1, self.kernel_size[0], self.kernel_size[1]) #fewer channels for mask
             
         self.slide_winsize = self.weight_maskUpdater.shape[1] * self.weight_maskUpdater.shape[2] * self.weight_maskUpdater.shape[3]
 
-        self.last_size = (None, None, None, None)
-        self.update_mask = None
-        self.mask_ratio = None
+        self.last_size = (None, None, None, None) #initialize last size
+        self.update_mask = None #initialize update_mask
+        self.mask_ratio = None #initialize mask_ratio
 
-    def forward(self, input, mask_in=None):
-        assert len(input.shape) == 4
-        if mask_in is not None or self.last_size != tuple(input.shape):
+    def forward(self, input, mask_in=None): #define forward prop
+        assert len(input.shape) == 4 #ensure input has 4 dimensions
+        if mask_in is not None or self.last_size != tuple(input.shape): #if mask exists or if last size does not equal input size
             self.last_size = tuple(input.shape)
 
-            with torch.no_grad():
-                if self.weight_maskUpdater.type() != input.type():
-                    self.weight_maskUpdater = self.weight_maskUpdater.to(input)
+            with torch.no_grad(): #turn off required grad flags
+                if self.weight_maskUpdater.type() != input.type(): #if types are unequal
+                    self.weight_maskUpdater = self.weight_maskUpdater.to(input)  #adjust the type of weight_maskUpdater to match that of the input
 
-                if mask_in is None:
+                if mask_in is None: #no mask provided
                     # if mask is not provided, create a mask
-                    if self.multi_channel:
-                        mask = torch.ones(input.data.shape[0], input.data.shape[1], input.data.shape[2], input.data.shape[3]).to(input)
+                    if self.multi_channel: #if self.multi_channel is set
+                        mask = torch.ones(input.data.shape[0], input.data.shape[1], input.data.shape[2], input.data.shape[3]).to(input) #create mask for multiple channels
                     else:
-                        mask = torch.ones(1, 1, input.data.shape[2], input.data.shape[3]).to(input)
+                        mask = torch.ones(1, 1, input.data.shape[2], input.data.shape[3]).to(input) #create mask for single channel
                 else:
-                    mask = mask_in
+                    mask = mask_in #set mask to given mask
+                    #how do i get here???
                         
                 self.update_mask = F.conv2d(mask, self.weight_maskUpdater, bias=None, stride=self.stride, padding=self.padding, dilation=self.dilation, groups=1)
 
